@@ -238,7 +238,7 @@ def export_csv(data: list[dict], filepath: str) -> None:
                 all_keys.append(k)
                 seen.add(k)
 
-    with smart_open(filepath, "w", newline="", encoding="utf-8") as f:
+    with smart_open(filepath) as f:
         writer = csv.DictWriter(f, fieldnames=all_keys, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(flat)
