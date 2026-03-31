@@ -8,3 +8,24 @@ dependencies = [
     "pandas>=3.0.1",
     "requests>=2.32.5",
 ]
+
+[project.scripts]
+pgscat = "pgscat.pgsclient:cli_main"
+
+[dependency-groups]
+dev = [
+    "anywidget>=0.9.21",
+    "ipykernel>=7.2.0",
+    "ipywidgets>=8.1.8",
+    "jupyterlab>=4.5.6",
+    "matplotlib>=3.10.8",
+    "notebook>=7.5.5",
+    "plotly>=6.6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pgscat"]

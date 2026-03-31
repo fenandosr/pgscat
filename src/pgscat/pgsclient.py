@@ -19,6 +19,7 @@ import csv
 import sys
 import time
 import argparse
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 import requests
@@ -28,7 +29,7 @@ import requests
 # ── Configuración ────────────────────────────────────────────────────────────
 BASE_URL = "https://www.pgscatalog.org/rest"
 HEADERS  = {"Accept": "application/json"}
-RATE_LIMIT_PAUSE = 0.25          # segundos entre peticiones paginadas
+RATE_LIMIT_PAUSE = 5          # segundos entre peticiones paginadas
 DEFAULT_TIMEOUT  = 30            # segundos
 
 
@@ -204,11 +205,21 @@ def flatten_record(record: dict, parent_key: str = "", sep: str = ".") -> dict:
     return dict(items)
 
 
-def export_json(data: list[dict] | dict, filepath: str) -> None:
+@contextmanager
+def smart_open(path: str | None):
+    if path in (None, "-"):
+        yield sys.stdout
+    else:
+        with open(path, "w", encoding="utf-8") as f:
+            yield f
+
+
+def export_json(data: list[dict] | dict, filepath: str | None) -> None:
     """Exportar resultados a JSON."""
-    path = Path(filepath)
-    with open(path, "w", encoding="utf-8") as f:
+    with smart_open(filepath) as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    path = Path(filepath)
     print(f"  ✓ Exportado a {path}  ({path.stat().st_size / 1024:.1f} KB)")
 
 
@@ -227,12 +238,25 @@ def export_csv(data: list[dict], filepath: str) -> None:
                 all_keys.append(k)
                 seen.add(k)
 
-    path = Path(filepath)
-    with open(path, "w", newline="", encoding="utf-8") as f:
+    with smart_open(filepath, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=all_keys, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(flat)
+    path = Path(filepath)
     print(f"  ✓ Exportado a {path}  ({path.stat().st_size / 1024:.1f} KB)")
+
+
+def download_file(url: str, output: str | None = None):
+    local_name = output or url.split("/")[-1]
+
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(local_name, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+
+    print(f"✓ Descargado: {local_name}", file=sys.stderr)
 
 
 # ── Funciones de presentación ────────────────────────────────────────────────
@@ -480,22 +504,34 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Ejemplos:
-  python pgs_catalog_client.py score PGS000001
-  python pgs_catalog_client.py search-scores --trait EFO_0001360 --limit 5
-  python pgs_catalog_client.py search-scores --pmid 25855707
-  python pgs_catalog_client.py publication PGP000001
-  python pgs_catalog_client.py trait EFO_0000305
-  python pgs_catalog_client.py performance --pgs PGS000001
-  python pgs_catalog_client.py info
-  python pgs_catalog_client.py --interactive
+  pgscat score PGS000001
+  pgscat search-scores --trait EFO_0001360 --limit 5
+  pgscat search-scores --pmid 25855707
+  pgscat publication PGP000001
+  pgscat trait EFO_0000305
+  pgscat performance --pgs PGS000001
+  pgscat download PGS003449 --build GRCh38
+  pgscat info
+  pgscat --interactive
 """,
     )
     p.add_argument("--interactive", "-i", action="store_true",
                     help="Abrir menú interactivo")
-    p.add_argument("--json", type=str, metavar="FILE",
-                    help="Exportar resultado a archivo JSON")
-    p.add_argument("--csv", type=str, metavar="FILE",
-                    help="Exportar resultado a archivo CSV")
+    p.add_argument(
+        "--json",
+        nargs="?",
+        const="-",
+        metavar="FILE",
+        help="Exportar a JSON (default: stdout si no se especifica FILE)"
+    )
+
+    p.add_argument(
+        "--csv",
+        nargs="?",
+        const="-",
+        metavar="FILE",
+        help="Exportar a CSV (default: stdout si no se especifica FILE)"
+    )
 
     sub = p.add_subparsers(dest="command")
 
@@ -535,6 +571,22 @@ Ejemplos:
 
     # ancestry
     sub.add_parser("ancestry", help="Categorías de ancestría")
+
+    # download
+    dl = sub.add_parser("download", help="Descargar scoring file")
+    dl.add_argument("pgs_id")
+    dl.add_argument("--build", choices=["GRCh37", "GRCh38"], default="GRCh38")
+    dl.add_argument(
+        "--type",
+        choices=["positions", "original"],
+        default="positions",
+        help="Tipo de archivo"
+    )
+    dl.add_argument(
+        "-o", "--output",
+        default=None,
+        help="Archivo de salida (default: nombre original)"
+    )
 
     return p
 
@@ -595,13 +647,23 @@ def cli_main():
     elif args.command == "ancestry":
         result = client.get_ancestry_categories()
         print(json.dumps(result, indent=2, ensure_ascii=False))
+    
+    elif args.command == "download":
+        score = client.get_score(args.pgs_id)
+
+        if args.type == "positions":
+            url = score["ftp_harmonized_scoring_files"][args.build]["positions"]
+        else:
+            url = score["ftp_scoring_file"]
+
+        download_file(url, args.output)
 
     # Exportar si se pidió
     if result is not None:
-        if args.json:
-            export_json(result if isinstance(result, (list, dict)) else [result],
-                        args.json)
-        if args.csv:
+        if args.json is not None:
+            export_json(result, args.json)
+
+        if args.csv is not None:
             data_list = result if isinstance(result, list) else [result]
             export_csv(data_list, args.csv)
 
