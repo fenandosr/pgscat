@@ -11,7 +11,7 @@ Este proyecto usa **uv** para gestión de entornos y paquetes.
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/tuusuario/pgscat.git
+git clone https://github.com/fenandosr/pgscat.git
 cd pgscat
 ```
 
