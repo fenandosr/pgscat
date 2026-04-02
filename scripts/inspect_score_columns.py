@@ -85,9 +85,9 @@ def normalize_name(name: str) -> str:
 
 
 def open_text_auto(path: str) -> TextIO:
+    p = Path(path)
     if path == "-":
         return sys.stdin
-    p = Path(path)
     if p.suffix == ".gz":
         return gzip.open(p, "rt", encoding="utf-8", newline="")
     return open(p, "rt", encoding="utf-8", newline="")
