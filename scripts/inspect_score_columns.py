@@ -62,7 +62,7 @@ COLUMN_SYNONYMS = {
         "risk_allele",
         "hm_effect_allele",
     ],
-    "other_allele": [
+    "OTHER_ALLELE": [
         "other_allele",
         "non_effect_allele",
         "reference_allele",
@@ -70,12 +70,19 @@ COLUMN_SYNONYMS = {
         "hm_inferotherallele",
         "hm_infer_other_allele",
     ],
-    "effect_allele": [
+    "EFFECT_ALLELE": [
         "effect_allele",
         "risk_allele",
         "alt_allele",
         "alternate_allele",
         "hm_effect_allele",
+    ],
+    "EFFECT_WEIGHT": [
+        "effect_weight",
+        "beta",
+        "weight",
+        "effectsize",
+        "effect_size",
     ],
 }
 
