@@ -1,5 +1,7 @@
-# notebooks
+# user
 notebooks/
+logs/
+.input/
 
 # Python-generated files
 __pycache__/
