@@ -9,8 +9,7 @@ find /mnt/cephfs/hot_nvme/pgscatalog/scores \
 | sort \
 | while read -r f; do
     echo "[INFO] Processing $f"
-    uv run python scripts/build_betamap_and_load_duckdb.py \
-      "$f" \
-      --duckdb /mnt/cephfs/hot_nvme/pgscatalog/prsvariants.duckdb \
-      --fasta /mnt/cephfs/hot_nvme/hg38/ref/hg38.fa
+    uv run python scripts/inspect_score_columns.py \
+        ${f} --genome_build GRCh38 --output ${f%.txt.gz}.columns.json
+    echo "[INFO] Done processing $f"
   done
